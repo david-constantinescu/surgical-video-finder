@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surgical Video Finder</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div>
+        <h1 data-i18n="app.title">Surgical Video Finder</h1>
+        <p class="subtitle" data-i18n="app.subtitle">Search pathologies and procedures, then find surgical videos</p>
+      </div>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+        <button type="button" class="lang-btn" data-lang="ro">RO</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel search-panel">
+      <div class="search-row">
+        <input type="search" id="searchInput" class="search-input" autocomplete="off"
+               data-i18n-placeholder="search.placeholder" placeholder="Search diagnoses or procedures…">
+        <select id="searchMode" class="search-mode">
+          <option value="hybrid" data-i18n="search.mode.hybrid">Smart search</option>
+          <option value="keyword" data-i18n="search.mode.keyword">Keyword</option>
+          <option value="semantic" data-i18n="search.mode.semantic">Semantic</option>
+        </select>
+        <select id="kindFilter" class="kind-filter">
+          <option value="">All</option>
+          <option value="diagnosis" data-i18n="results.kind.diagnosis">Diagnosis</option>
+          <option value="procedure" data-i18n="results.kind.procedure">Procedure</option>
+        </select>
+      </div>
+      <div id="searchResults" class="results-list" aria-live="polite"></div>
+    </section>
+
+    <section class="panel selected-panel">
+      <h2 data-i18n="selected.title">Selected terms</h2>
+      <p id="selectedEmpty" class="muted" data-i18n="selected.empty">Add terms from search results.</p>
+      <div id="selectedChips" class="chips"></div>
+      <button type="button" id="findVideosBtn" class="primary-btn" disabled data-i18n="videos.search">
+        Find videos
+      </button>
+    </section>
+
+    <section class="panel videos-panel">
+      <h2 data-i18n="videos.title">Video sources</h2>
+      <p class="muted" data-i18n="videos.subtitle">Open external platforms to find operative videos.</p>
+      <p id="videosEmpty" class="muted" data-i18n="videos.empty">Select at least one term.</p>
+      <div id="videoLinks" class="video-links"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p data-i18n="disclaimer">Educational use only.</p>
+  </footer>
+
+  <script>
+    window.APP_LANG = "{{ lang }}";
+  </script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
