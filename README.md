@@ -18,7 +18,7 @@ Built with **Python (Flask)**, **SQLite**, **HTML/CSS/JS**.
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_USER/surgical-video-finder.git
+git clone https://github.com/david-constantinescu/surgical-video-finder.git
 cd surgical-video-finder
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
