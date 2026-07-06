@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import asdict
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, g, jsonify, render_template, request
 
-from app.config import DB_PATH, DEFAULT_LOCALE, FLASK_DEBUG, FLASK_PORT, SUPPORTED_LOCALES
-from app.db import db_session, init_db
-from app.search import get_term, get_terms_batch, search_terms
-from app.video_links import build_video_links
+from app import config
+from app.config import DEFAULT_LOCALE, FLASK_DEBUG, FLASK_HOST, FLASK_PORT, SUPPORTED_LOCALES
+from app.db import get_connection, init_db
+from app.search import SemanticIndexNotReady, get_term, get_terms_batch, search_terms
+from app.video_links import build_video_link_groups
 
 I18N_DIR = Path(__file__).parent / "i18n"
 _bundles: dict[str, dict] = {}
@@ -29,9 +31,55 @@ def resolve_locale() -> str:
     return lang if lang in SUPPORTED_LOCALES else DEFAULT_LOCALE
 
 
+def parse_int_param(value: str | None, default: int, *, name: str) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"invalid {name}") from exc
+
+
+def parse_id_list(values: list) -> list[int]:
+    ids: list[int] = []
+    for raw in values:
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("ids must be integers") from exc
+    return ids
+
+
+def _prewarm_semantic_background() -> None:
+    """Load embedding cache + model in a daemon thread so first semantic query is fast."""
+
+    def _run() -> None:
+        try:
+            from app.search import _get_model, _load_embedding_cache
+
+            matrix, _, _ = _load_embedding_cache()
+            if matrix is not None:
+                _get_model()
+        except Exception:
+            pass  # keyword-only installs skip semantic assets
+
+    threading.Thread(target=_run, daemon=True, name="semantic-prewarm").start()
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
     init_db()
+    _prewarm_semantic_background()
+
+    @app.before_request
+    def open_db():
+        g.db = get_connection()
+
+    @app.teardown_request
+    def close_db(exc):
+        db = g.pop("db", None)
+        if db is not None:
+            db.close()
 
     @app.get("/")
     def index():
@@ -50,26 +98,31 @@ def create_app() -> Flask:
         lang = resolve_locale()
         kind = request.args.get("kind")
         mode = request.args.get("mode", "hybrid")
-        limit = min(int(request.args.get("limit", 20)), 50)
+        try:
+            limit = min(parse_int_param(request.args.get("limit"), 20, name="limit"), 50)
+        except ValueError:
+            return jsonify({"error": "invalid limit"}), 400
 
         if not q:
-            return jsonify({"results": [], "query": q, "lang": lang})
+            return jsonify({"results": [], "query": q, "lang": lang, "count": 0})
 
-        with db_session() as conn:
-            results = search_terms(conn, q, lang, kind or None, mode, limit)
+        try:
+            results = search_terms(g.db, q, lang, kind or None, mode, limit)
+        except SemanticIndexNotReady as exc:
+            return jsonify({"error": "semantic_index_missing", "message": str(exc)}), 503
 
         return jsonify({
             "results": [term_to_dict(t, lang) for t in results],
             "query": q,
             "lang": lang,
             "mode": mode,
+            "count": len(results),
         })
 
     @app.get("/api/terms/<int:term_id>")
     def api_term(term_id: int):
         lang = resolve_locale()
-        with db_session() as conn:
-            term = get_term(conn, term_id, lang)
+        term = get_term(g.db, term_id, lang)
         if not term:
             return jsonify({"error": "not_found"}), 404
         return jsonify(term_to_dict(term, lang))
@@ -81,38 +134,76 @@ def create_app() -> Flask:
         lang = payload.get("lang") or resolve_locale()
         if not isinstance(ids, list):
             return jsonify({"error": "ids must be a list"}), 400
+        try:
+            id_list = parse_id_list(ids)
+        except ValueError:
+            return jsonify({"error": "ids must be integers"}), 400
 
-        with db_session() as conn:
-            terms = get_terms_batch(conn, [int(i) for i in ids], lang)
+        terms = get_terms_batch(g.db, id_list, lang)
         return jsonify({"terms": [term_to_dict(t, lang) for t in terms], "lang": lang})
 
     @app.get("/api/videos/links")
     def api_video_links():
         lang = resolve_locale()
         raw_ids = request.args.get("term_ids", "")
-        ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
+        try:
+            ids = parse_id_list([x for x in raw_ids.split(",") if x.strip()])
+        except ValueError:
+            return jsonify({"error": "term_ids must be integers"}), 400
         if not ids:
-            return jsonify({"terms": [], "sources": [], "lang": lang})
+            return jsonify({"terms": [], "groups": [], "sources": [], "lang": lang})
 
-        with db_session() as conn:
-            terms = get_terms_batch(conn, ids, lang)
-            links = build_video_links(conn, terms, lang)
+        terms = get_terms_batch(g.db, ids, lang)
+        groups = build_video_link_groups(g.db, terms, lang)
+        flat = [link for g in groups for link in g.sources]
 
         return jsonify({
             "terms": [term_to_dict(t, lang) for t in terms],
-            "sources": [asdict(link) for link in links],
+            "groups": [
+                {
+                    "term_id": grp.term_id,
+                    "term_name": grp.term_name,
+                    "sources": [asdict(s) for s in grp.sources],
+                }
+                for grp in groups
+            ],
+            "sources": [asdict(link) for link in flat],
             "lang": lang,
         })
 
+    @app.get("/api/sources")
+    def api_sources():
+        rows = g.db.execute(
+            "SELECT slug, name, tier, language, specialty, requires_auth FROM video_sources ORDER BY name"
+        ).fetchall()
+        return jsonify({"sources": [dict(r) for r in rows]})
+
     @app.get("/api/health")
     def health():
-        exists = DB_PATH.exists()
-        with db_session() as conn:
-            term_count = conn.execute("SELECT COUNT(*) AS c FROM terms").fetchone()["c"]
-            source_count = conn.execute("SELECT COUNT(*) AS c FROM video_sources").fetchone()["c"]
+        if not config.DB_PATH.exists():
+            return jsonify({
+                "status": "no_database",
+                "db": False,
+                "terms": 0,
+                "video_sources": 0,
+                "message": "Run python scripts/build_all.py",
+            }), 503
+        try:
+            term_count = g.db.execute("SELECT COUNT(*) AS c FROM terms").fetchone()["c"]
+            source_count = g.db.execute("SELECT COUNT(*) AS c FROM video_sources").fetchone()["c"]
+        except Exception:
+            return jsonify({"status": "error", "db": True, "message": "database unreadable"}), 500
+        if term_count == 0:
+            return jsonify({
+                "status": "empty_database",
+                "db": True,
+                "terms": 0,
+                "video_sources": source_count,
+                "message": "Run python scripts/build_all.py",
+            }), 503
         return jsonify({
             "status": "ok",
-            "db": exists,
+            "db": True,
             "terms": term_count,
             "video_sources": source_count,
         })
@@ -121,7 +212,6 @@ def create_app() -> Flask:
 
 
 def term_to_dict(term, lang: str) -> dict:
-    fallback_en = lang == "ro" and term.display_name == (term.primary_name or "")
     return {
         "id": term.id,
         "kind": term.kind,
@@ -130,6 +220,7 @@ def term_to_dict(term, lang: str) -> dict:
         "primary_name": term.primary_name,
         "consumer_name": term.consumer_name,
         "display_name": term.display_name,
+        "video_query": term.video_query,
         "layer": term.layer,
         "specialty": term.specialty,
         "is_surgical": term.is_surgical,
@@ -137,7 +228,8 @@ def term_to_dict(term, lang: str) -> dict:
         "synonyms": term.synonyms,
         "score": term.score,
         "locale": lang,
-        "fallback_en": fallback_en,
+        "fallback_en": term.fallback_en,
+        "fallback_ro": term.fallback_ro,
     }
 
 
@@ -145,4 +237,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=FLASK_PORT, debug=FLASK_DEBUG)
+    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=FLASK_DEBUG)

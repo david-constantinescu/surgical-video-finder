@@ -33,7 +33,7 @@ def parse_pcs_line(line: str) -> dict | None:
 def main() -> None:
     source = CODES_FILE if CODES_FILE.exists() else LEGACY_FILE
     if not source.exists():
-        raise FileNotFoundError(f"Missing ICD-10-PCS source; run download_sources.py")
+        raise FileNotFoundError("Missing ICD-10-PCS source; run download_sources.py")
 
     init_db()
     count = 0

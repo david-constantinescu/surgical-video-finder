@@ -21,6 +21,7 @@ STEPS = [
     "seed_video_sources.py",
     "build_search_index.py",
     "build_semantic_index.py",
+    "validate_db.py",
 ]
 
 

@@ -27,11 +27,12 @@ pip install -r requirements.txt
 # Build database (first run: downloads sources + indexes; 30–60 min with semantic step)
 python scripts/build_all.py
 
-# Run the app
-python app/server.py
+# Run the app (from project root)
+python -m app.server
+# or: flask --app app.server run --port 5001
 ```
 
-Open **http://localhost:5000**
+Open **http://localhost:5001** (default port avoids macOS AirPlay on 5000)
 
 > The database is not committed to git. You must run `build_all.py` after cloning.
 
@@ -58,8 +59,8 @@ Open **http://localhost:5000**
 ### Example
 
 ```bash
-curl "http://localhost:5000/api/terms/search?q=appendectomy&lang=en&mode=hybrid&limit=5"
-curl "http://localhost:5000/api/videos/links?term_ids=1,2&lang=ro"
+curl "http://localhost:5001/api/terms/search?q=appendectomy&lang=en&mode=hybrid&limit=5"
+curl "http://localhost:5001/api/videos/links?term_ids=1,2&lang=ro"
 ```
 
 ## Configuration
@@ -67,7 +68,7 @@ curl "http://localhost:5000/api/videos/links?term_ids=1,2&lang=ro"
 Copy `.env.example` to `.env`:
 
 ```env
-FLASK_PORT=5000
+FLASK_PORT=5001
 FLASK_DEBUG=0
 YOUTUBE_API_KEY=          # optional; Phase 2 video caching
 VIMEO_TOKEN=              # optional

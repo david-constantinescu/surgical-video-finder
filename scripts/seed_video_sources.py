@@ -17,7 +17,7 @@ VIDEO_SOURCES = [
      "https://www.youtube.com/results?search_query={query}", 0,
      "Primary video index; Phase 2 uses YouTube Data API v3 when key is set."),
     ("PubMed / PMC", "pubmed", "api", "en", None,
-     "https://pubmed.ncbi.nlm.nih.gov/?term={query}+surgery+video", 0,
+     "https://pubmed.ncbi.nlm.nih.gov/?term={query}", 0,
      "Articles with surgical video supplements."),
     ("Vimeo", "vimeo", "api", "multi", None,
      "https://vimeo.com/search?q={query}", 0,

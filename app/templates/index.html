@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,15 +31,16 @@
           <option value="semantic" data-i18n="search.mode.semantic">Semantic</option>
         </select>
         <select id="kindFilter" class="kind-filter">
-          <option value="">All</option>
+          <option value="" data-i18n="filter.all">All</option>
           <option value="diagnosis" data-i18n="results.kind.diagnosis">Diagnosis</option>
           <option value="procedure" data-i18n="results.kind.procedure">Procedure</option>
         </select>
       </div>
-      <div id="searchResults" class="results-list" aria-live="polite"></div>
+      <div id="searchCount" class="search-count" aria-live="polite"></div>
+      <div id="searchResults" class="results-list" role="listbox" aria-live="polite"></div>
     </section>
 
-    <section class="panel selected-panel">
+    <section class="panel selected-panel" id="selectedPanel">
       <h2 data-i18n="selected.title">Selected terms</h2>
       <p id="selectedEmpty" class="muted" data-i18n="selected.empty">Add terms from search results.</p>
       <div id="selectedChips" class="chips"></div>

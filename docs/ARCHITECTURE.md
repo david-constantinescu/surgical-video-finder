@@ -54,13 +54,13 @@ Phase 2 (planned) adds YouTube Data API caching into `video_results`.
 | `keyword` | FTS5 only | Exact codes, prefixes |
 | `semantic` | Embeddings only | Conceptual queries ("gallbladder removal") |
 
-Hybrid score:
+Hybrid ranking uses **reciprocal rank fusion (RRF)** to merge keyword and semantic result lists without double-counting layer boosts or producing scores above 100%.
 
 ```
-0.55 × semantic_similarity + 0.30 × fts_rank + 0.15 × layer_boost
+rrf_score = Σ 1 / (RRF_K + rank_i)   # RRF_K = 60 by default
 ```
 
-Curated NLM terms and flagged surgical procedures receive a layer boost.
+Each list contributes by position (rank 1, 2, 3…). Keyword ranks come from FTS5 `bm25()` (more negative = better match), converted to a 0–1 score for display only. Semantic results are sorted by cosine similarity before fusion. Curated NLM terms and flagged surgical procedures receive a small layer boost applied after fusion.
 
 ## Deployment notes
 

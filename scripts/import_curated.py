@@ -25,6 +25,23 @@ CONDITIONS_JSON = RAW_DIR / "nlm_conditions.json"
 PROCEDURES_CSV = RAW_DIR / "nlm_procedures.csv"
 PROCEDURES_JSON = RAW_DIR / "nlm_procedures.json"
 
+PROCEDURE_SPECIALTY_HINTS: dict[str, str] = {
+    "appendectomy": "gi",
+    "cholecystectomy": "gi",
+    "gastrectomy": "gi",
+    "colectomy": "gi",
+    "hernia": "gi",
+    "mastectomy": "general",
+    "thyroidectomy": "general",
+    "prostatectomy": "urology",
+    "nephrectomy": "urology",
+    "craniotomy": "neurosurgery",
+    "arthroplasty": "orthopaedic",
+    "cataract": "ophthalmology",
+    "bypass": "cardiothoracic",
+    "valve": "cardiothoracic",
+}
+
 
 def split_synonyms(value: str | None) -> list[str]:
     if not value:
@@ -71,6 +88,14 @@ def import_conditions(conn) -> int:
     return count
 
 
+def infer_specialty(name: str) -> str | None:
+    lower = name.lower()
+    for hint, specialty in PROCEDURE_SPECIALTY_HINTS.items():
+        if hint in lower:
+            return specialty
+    return None
+
+
 def import_procedures(conn) -> int:
     count = 0
     if PROCEDURES_CSV.exists():
@@ -97,10 +122,10 @@ def import_procedures(conn) -> int:
         key_id = row.get("key_id") or row.get("KEY_ID")
         cur = conn.execute(
             """
-            INSERT INTO terms (kind, code, code_system, primary_name, consumer_name, layer, is_surgical, active)
-            VALUES ('procedure', ?, 'NLM', ?, ?, 'curated', 1, 1)
+            INSERT INTO terms (kind, code, code_system, primary_name, consumer_name, layer, is_surgical, specialty, active)
+            VALUES ('procedure', ?, 'NLM', ?, ?, 'curated', 1, ?, 1)
             """,
-            (key_id, primary, consumer),
+            (key_id, primary, consumer, infer_specialty(primary)),
         )
         term_id = cur.lastrowid
         upsert_en_translation(conn, term_id, primary, consumer)
@@ -113,6 +138,7 @@ def import_procedures(conn) -> int:
 def main() -> None:
     init_db()
     with db_session() as conn:
+        conn.execute("DELETE FROM terms WHERE code_system = 'NLM'")
         dx = import_conditions(conn)
         px = import_procedures(conn)
         log_import(conn, "nlm_conditions", "curated", dx)

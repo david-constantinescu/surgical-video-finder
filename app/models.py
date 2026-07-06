@@ -17,6 +17,9 @@ class Term:
     locale: str
     synonyms: list[str] = field(default_factory=list)
     score: float | None = None
+    fallback_en: bool = False
+    fallback_ro: bool = False
+    video_query: str = ""
 
 
 @dataclass
@@ -29,3 +32,12 @@ class VideoSourceLink:
     specialty: str | None
     requires_auth: bool
     notes: str | None = None
+    term_id: int | None = None
+    term_name: str | None = None
+
+
+@dataclass
+class VideoLinkGroup:
+    term_id: int
+    term_name: str
+    sources: list[VideoSourceLink]

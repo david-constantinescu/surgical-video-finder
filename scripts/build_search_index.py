@@ -22,7 +22,7 @@ CREATE VIRTUAL TABLE terms_fts USING fts5(
   code,
   aliases_en,
   aliases_ro,
-  tokenize='unicode61 remove_diacritics 0'
+  tokenize='unicode61 remove_diacritics 2'
 );
 """
 

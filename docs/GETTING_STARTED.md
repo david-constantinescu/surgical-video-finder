@@ -46,10 +46,11 @@ python scripts/build_search_index.py
 ## Run the app
 
 ```bash
-python app/server.py
+python -m app.server
+# or: flask --app app.server run --port 5001
 ```
 
-Visit http://localhost:5000
+Visit http://localhost:5001
 
 ## Typical workflow
 
@@ -64,13 +65,13 @@ Visit http://localhost:5000
 |-------|-----|
 | `No terms to embed` | Run import scripts before `build_semantic_index.py` |
 | Empty search results | Run `build_search_index.py` after imports |
-| Slow first semantic query | Model loads on first use; embeddings load from `data/embeddings/` |
+| Port 5000 in use (macOS AirPlay) | Default is **5001**; set `FLASK_PORT` in `.env` |
 | Romanian labels show `[EN]` | Optional `icd10.ro` Excel failed to download; add overrides in `data/curated_ro_overrides.csv` |
 
 ## Health check
 
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:5001/api/health
 ```
 
 Expected: `"terms": 161000+`, `"video_sources": 46`

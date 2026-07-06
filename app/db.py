@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.config import DB_PATH, DATA_DIR, EMBEDDING_MODEL
+from app import config
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
@@ -87,18 +87,29 @@ CREATE INDEX IF NOT EXISTS idx_translations_locale ON term_translations(locale);
 
 
 def ensure_data_dir() -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    (DATA_DIR / "raw").mkdir(exist_ok=True)
-    (DATA_DIR / "embeddings").mkdir(exist_ok=True)
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    (config.DATA_DIR / "raw").mkdir(exist_ok=True)
+    (config.DATA_DIR / "embeddings").mkdir(exist_ok=True)
 
 
 def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     ensure_data_dir()
-    path = db_path or DB_PATH
+    path = db_path or config.DB_PATH
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    # PRAGMA foreign_keys must be set per connection (journal_mode=WAL persists via init_db)
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+
+@contextmanager
+def db_read_session(db_path: Path | None = None):
+    """Read-only session — no commit on success."""
+    conn = get_connection(db_path)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 @contextmanager
@@ -194,4 +205,4 @@ def find_term_by_code(
 
 
 def embedding_model_name() -> str:
-    return EMBEDDING_MODEL
+    return config.EMBEDDING_MODEL

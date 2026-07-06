@@ -31,6 +31,7 @@ When a Romanian label is missing, the UI shows the English name with an `[EN]` b
 - **NLM Clinical Tables** — [NLM terms of use](https://clinicaltables.nlm.nih.gov/faq.html).
 - **icd-mappings** — MIT License.
 - **AMA CPT** — intentionally **not** included (proprietary).
+- **ICD-10-AM / ACHI (Romania)** — data from [SANT/CNAS](http://www.sant.ro/) and related Romanian sources may be subject to IHACPA / national licensing. This project parses public files for local, non-commercial use; **redistributing a prebuilt database containing ACHI rows may require separate permission**. Build locally from published sources when in doubt.
 
 ## Rebuilding the database
 

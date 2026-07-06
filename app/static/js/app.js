@@ -1,11 +1,28 @@
 (() => {
   const LANG_KEY = "svf_lang";
+  const SELECTED_KEY = "svf_selected";
   let lang = localStorage.getItem(LANG_KEY) || window.APP_LANG || "en";
   let i18n = {};
   let selected = new Map();
   let searchTimer = null;
+  let resultIndex = -1;
+  let lastResults = [];
 
   const $ = (sel) => document.querySelector(sel);
+
+  function loadSelected() {
+    try {
+      const raw = localStorage.getItem(SELECTED_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        arr.forEach((t) => selected.set(t.id, t));
+      }
+    } catch { /* ignore */ }
+  }
+
+  function saveSelected() {
+    localStorage.setItem(SELECTED_KEY, JSON.stringify(Array.from(selected.values())));
+  }
 
   async function loadI18n() {
     const res = await fetch(`/api/i18n/${lang}`);
@@ -22,18 +39,22 @@
     document.querySelectorAll(".lang-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.lang === lang);
     });
-    const kindAll = document.querySelector('#kindFilter option[value=""]');
-    if (kindAll) kindAll.textContent = lang === "ro" ? "Toate" : "All";
   }
 
   function t(key) {
     return i18n[key] || key;
   }
 
+  function truncate(str, max = 48) {
+    if (str.length <= max) return str;
+    return `${str.slice(0, max - 1)}…`;
+  }
+
   function renderSelected() {
     const chips = $("#selectedChips");
     const empty = $("#selectedEmpty");
     const btn = $("#findVideosBtn");
+    const panel = $("#selectedPanel");
     chips.innerHTML = "";
 
     if (selected.size === 0) {
@@ -47,33 +68,63 @@
     selected.forEach((term) => {
       const chip = document.createElement("span");
       chip.className = "chip";
+      const badge = term.fallback_en
+        ? ` [${t("results.fallbackEn")}]`
+        : term.fallback_ro
+          ? ` [${t("results.fallbackRo")}]`
+          : "";
       chip.innerHTML = `
-        <span>${escapeHtml(term.display_name)}${term.fallback_en ? ` <small>[${t("results.fallbackEn")}]</small>` : ""}</span>
+        <span title="${escapeHtml(term.display_name)}">${escapeHtml(truncate(term.display_name))}${badge}</span>
         <button type="button" aria-label="${t("selected.remove")}" data-id="${term.id}">&times;</button>
       `;
       chip.querySelector("button").addEventListener("click", () => {
         selected.delete(term.id);
+        saveSelected();
         renderSelected();
       });
       chips.appendChild(chip);
     });
+    panel.classList.add("highlight");
+    setTimeout(() => panel.classList.remove("highlight"), 1200);
   }
 
   function escapeHtml(str) {
-    return str.replace(/[&<>"']/g, (c) => ({
+    return String(str).replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[c]));
+  }
+
+  function renderEmptySearch() {
+    const container = $("#searchResults");
+    container.innerHTML = `
+      <p class="empty-msg">${t("search.suggestionsTitle")}</p>
+      <div class="suggestions">
+        ${(i18n["search.suggestions"] || "").split("|").map((s) =>
+          `<button type="button" class="suggestion-btn">${escapeHtml(s.trim())}</button>`
+        ).join("")}
+      </div>
+    `;
+    container.querySelectorAll(".suggestion-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        $("#searchInput").value = btn.textContent;
+        doSearch();
+      });
+    });
   }
 
   async function doSearch() {
     const q = $("#searchInput").value.trim();
     const container = $("#searchResults");
+    const countEl = $("#searchCount");
     if (!q) {
       container.innerHTML = "";
+      countEl.textContent = "";
+      lastResults = [];
       return;
     }
 
-    container.innerHTML = `<p class="empty-msg">${t("search.loading")}</p>`;
+    container.innerHTML = `<p class="empty-msg loading"><span class="spinner"></span> ${t("search.loading")}</p>`;
+    countEl.textContent = "";
     const mode = $("#searchMode").value;
     const kind = $("#kindFilter").value;
     const params = new URLSearchParams({ q, lang, mode, limit: "20" });
@@ -82,41 +133,63 @@
     try {
       const res = await fetch(`/api/terms/search?${params}`);
       const data = await res.json();
-      if (!data.results.length) {
-        container.innerHTML = `<p class="empty-msg">${t("search.noResults")}</p>`;
+      if (res.status === 503 && data.error === "semantic_index_missing") {
+        container.innerHTML = `<p class="empty-msg">${t("search.semanticMissing")}</p>`;
         return;
       }
-      container.innerHTML = data.results.map(renderResult).join("");
-      container.querySelectorAll(".add-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const id = Number(btn.dataset.id);
-          const term = data.results.find((r) => r.id === id);
-          if (term) {
-            selected.set(id, term);
-            renderSelected();
-          }
-        });
-      });
+      lastResults = data.results || [];
+      resultIndex = -1;
+      if (!lastResults.length) {
+        renderEmptySearch();
+        return;
+      }
+      countEl.textContent = t("search.resultCount").replace("{n}", data.count);
+      container.innerHTML = lastResults.map((term, i) => renderResult(term, i)).join("");
+      bindResultHandlers();
     } catch {
       container.innerHTML = `<p class="empty-msg">${t("error.generic")}</p>`;
     }
   }
 
-  function renderResult(term) {
+  function bindResultHandlers() {
+    const container = $("#searchResults");
+    container.querySelectorAll(".add-btn").forEach((btn) => {
+      btn.addEventListener("click", () => addTerm(Number(btn.dataset.id)));
+    });
+    container.querySelectorAll(".result-item").forEach((el) => {
+      el.addEventListener("mouseenter", () => {
+        resultIndex = Number(el.dataset.index);
+        highlightResult();
+      });
+    });
+  }
+
+  function addTerm(id) {
+    const term = lastResults.find((r) => r.id === id);
+    if (!term) return;
+    selected.set(id, term);
+    saveSelected();
+    renderSelected();
+    doSearch();
+    $("#selectedPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function renderResult(term, index) {
     const kindLabel = term.kind === "procedure" ? t("results.kind.procedure") : t("results.kind.diagnosis");
     const layerLabel = term.layer === "curated" ? t("results.layer.curated") : t("results.layer.comprehensive");
     const code = term.code ? `<span class="tag">${t("results.code")}: ${escapeHtml(term.code)}</span>` : "";
     const enBadge = term.fallback_en ? `<span class="tag en-fallback">${t("results.fallbackEn")}</span>` : "";
-    const score = term.score != null ? `<span class="tag">${(term.score * 100).toFixed(0)}%</span>` : "";
+    const roBadge = term.fallback_ro ? `<span class="tag ro-fallback">${t("results.fallbackRo")}</span>` : "";
+    const langFlag = term.fallback_ro ? "" : (lang === "ro" && term.fallback_en ? "" : "");
 
     return `
-      <div class="result-item">
+      <div class="result-item" data-index="${index}" role="option">
         <div class="result-meta">
-          <div class="result-name">${escapeHtml(term.display_name)}</div>
+          <div class="result-name" title="${escapeHtml(term.display_name)}">${escapeHtml(term.display_name)}</div>
           <div class="result-tags">
             <span class="tag">${kindLabel}</span>
             <span class="tag">${layerLabel}</span>
-            ${code}${enBadge}${score}
+            ${code}${enBadge}${roBadge}${langFlag}
           </div>
         </div>
         <button type="button" class="add-btn" data-id="${term.id}" ${selected.has(term.id) ? "disabled" : ""}>
@@ -126,38 +199,53 @@
     `;
   }
 
+  function highlightResult() {
+    document.querySelectorAll(".result-item").forEach((el, i) => {
+      el.classList.toggle("active", i === resultIndex);
+    });
+  }
+
   async function findVideos() {
     const container = $("#videoLinks");
     const empty = $("#videosEmpty");
     if (selected.size === 0) return;
 
     empty.style.display = "none";
-    container.innerHTML = `<p class="empty-msg">${t("videos.loading")}</p>`;
+    container.innerHTML = `<p class="empty-msg loading"><span class="spinner"></span> ${t("videos.loading")}</p>`;
 
     const ids = Array.from(selected.keys()).join(",");
     try {
       const res = await fetch(`/api/videos/links?term_ids=${ids}&lang=${lang}`);
       const data = await res.json();
-      if (!data.sources.length) {
+      const groups = data.groups || [];
+      if (!groups.length) {
         container.innerHTML = `<p class="empty-msg">${t("videos.empty")}</p>`;
         return;
       }
-      container.innerHTML = data.sources.map((src) => {
-        const tierLabel = t(`videos.tier.${src.tier}`) || src.tier;
-        const auth = src.requires_auth ? ` · ${t("videos.requiresAuth")}` : "";
-        return `
-          <a class="video-link" href="${src.url}" target="_blank" rel="noopener noreferrer">
-            <div class="video-link-info">
-              <div class="video-link-name">${escapeHtml(src.name)}</div>
-              <div class="video-link-meta">${tierLabel}${auth}</div>
-            </div>
-            <span class="video-open">${t("videos.open")} &rarr;</span>
-          </a>
-        `;
-      }).join("");
+      container.innerHTML = groups.map((grp) => `
+        <section class="video-group">
+          <h3 class="video-group-title">${escapeHtml(grp.term_name)}</h3>
+          ${grp.sources.map((src) => renderVideoLink(src)).join("")}
+        </section>
+      `).join("");
     } catch {
       container.innerHTML = `<p class="empty-msg">${t("error.generic")}</p>`;
     }
+  }
+
+  function renderVideoLink(src) {
+    const tierLabel = t(`videos.tier.${src.tier}`) || src.tier;
+    const auth = src.requires_auth ? ` · ${t("videos.requiresAuth")}` : "";
+    const langLabel = src.language ? src.language.toUpperCase() : "";
+    return `
+      <a class="video-link" href="${src.url}" target="_blank" rel="noopener noreferrer">
+        <div class="video-link-info">
+          <div class="video-link-name">${escapeHtml(src.name)} <span class="lang-flag">${langLabel}</span></div>
+          <div class="video-link-meta">${tierLabel}${auth}</div>
+        </div>
+        <span class="video-open">${t("videos.open")} &rarr;</span>
+      </a>
+    `;
   }
 
   function setLang(newLang) {
@@ -182,6 +270,31 @@
   $("#kindFilter").addEventListener("change", doSearch);
   $("#findVideosBtn").addEventListener("click", findVideos);
 
-  loadI18n();
-  renderSelected();
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement !== $("#searchInput")) {
+      e.preventDefault();
+      $("#searchInput").focus();
+    }
+    if (document.activeElement !== $("#searchInput")) return;
+    if (e.key === "ArrowDown" && lastResults.length) {
+      e.preventDefault();
+      resultIndex = Math.min(resultIndex + 1, lastResults.length - 1);
+      highlightResult();
+    }
+    if (e.key === "ArrowUp" && lastResults.length) {
+      e.preventDefault();
+      resultIndex = Math.max(resultIndex - 1, 0);
+      highlightResult();
+    }
+    if (e.key === "Enter" && resultIndex >= 0 && lastResults[resultIndex]) {
+      e.preventDefault();
+      addTerm(lastResults[resultIndex].id);
+    }
+  });
+
+  loadSelected();
+  loadI18n().then(() => {
+    renderSelected();
+    renderEmptySearch();
+  });
 })();

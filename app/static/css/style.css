@@ -249,6 +249,58 @@ h2 { margin: 0 0 0.75rem; font-size: 1.1rem; }
 
 .empty-msg { color: var(--muted); font-style: italic; }
 
+.search-count { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; min-height: 1.2em; }
+
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.result-item.active { border-color: var(--accent); background: var(--surface2); }
+
+.selected-panel.highlight { box-shadow: 0 0 0 2px var(--accent); transition: box-shadow 0.3s; }
+
+.suggestions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+
+.suggestion-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.suggestion-btn:hover { border-color: var(--accent); }
+
+.video-group { margin-bottom: 1.25rem; }
+
+.video-group-title {
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+}
+
+.lang-flag {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.tag.ro-fallback { color: var(--warning); }
+
+.search-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 @media (max-width: 640px) {
   .header-inner { flex-direction: column; }
   .result-item { flex-direction: column; align-items: stretch; }
