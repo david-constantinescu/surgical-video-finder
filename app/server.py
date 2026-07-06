@@ -11,7 +11,7 @@ from flask import Flask, g, jsonify, render_template, request
 
 from app import config
 from app.config import DEFAULT_LOCALE, FLASK_DEBUG, FLASK_HOST, FLASK_PORT, SUPPORTED_LOCALES
-from app.db import get_connection, init_db
+from app.db import db_read_session, init_db
 from app.search import SemanticIndexNotReady, get_term, get_terms_batch, search_terms
 from app.video_links import build_video_link_groups
 
@@ -73,13 +73,14 @@ def create_app() -> Flask:
 
     @app.before_request
     def open_db():
-        g.db = get_connection()
+        g._db_cm = db_read_session()
+        g.db = g._db_cm.__enter__()
 
     @app.teardown_request
     def close_db(exc):
-        db = g.pop("db", None)
-        if db is not None:
-            db.close()
+        cm = g.pop("_db_cm", None)
+        if cm is not None:
+            cm.__exit__(None, None, None)
 
     @app.get("/")
     def index():

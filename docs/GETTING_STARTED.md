@@ -65,6 +65,7 @@ Visit http://localhost:5001
 |-------|-----|
 | `No terms to embed` | Run import scripts before `build_semantic_index.py` |
 | Empty search results | Run `build_search_index.py` after imports |
+| Reimported NLM/ICD rows but RO search broken | Importers cascade-delete translations/embeddings — re-run `translate_curated_ro.py`, `enrich_metadata.py`, `build_search_index.py`, `build_semantic_index.py` (or `build_all.py`) |
 | Port 5000 in use (macOS AirPlay) | Default is **5001**; set `FLASK_PORT` in `.env` |
 | Romanian labels show `[EN]` | Optional `icd10.ro` Excel failed to download; add overrides in `data/curated_ro_overrides.csv` |
 

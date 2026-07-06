@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.db import add_synonym, db_session, init_db, log_import, upsert_en_translation
-from scripts.common import RAW_DIR
+from scripts.common import RAW_DIR, print_reindex_warning
 
 CODES_FILE = RAW_DIR / "icd10pcs-codes.txt"
 LEGACY_FILE = RAW_DIR / "icd10pcs-order.txt"
@@ -58,6 +58,7 @@ def main() -> None:
                 count += 1
         log_import(conn, "icd10pcs", "FY2025", count)
     print(f"Imported {count} ICD-10-PCS procedure codes.")
+    print_reindex_warning()
 
 
 if __name__ == "__main__":

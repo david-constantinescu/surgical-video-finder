@@ -6,12 +6,16 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app.config import EMBEDDINGS_DIR
 from app.db import db_session, init_db
 
 POLLUTED_MARKERS = ("Header:", "Specific long description about this code:")
+MIN_EMBEDDING_COVERAGE = 0.9
 
 
 def main() -> None:
@@ -33,10 +37,43 @@ def main() -> None:
         if not fts:
             errors.append("terms_fts table missing — run build_search_index.py")
 
-        emb = conn.execute("SELECT COUNT(*) AS c FROM term_embeddings").fetchone()["c"]
         terms = conn.execute("SELECT COUNT(*) AS c FROM terms").fetchone()["c"]
+        emb = conn.execute("SELECT COUNT(*) AS c FROM term_embeddings").fetchone()["c"]
         if terms > 1000 and emb == 0:
             errors.append("semantic index empty — run build_semantic_index.py or use keyword mode")
+
+        nlm_ro = conn.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM term_translations tt
+            JOIN terms t ON t.id = tt.term_id
+            WHERE t.code_system = 'NLM' AND tt.locale = 'ro'
+            """
+        ).fetchone()["c"]
+        nlm_terms = conn.execute(
+            "SELECT COUNT(*) AS c FROM terms WHERE code_system = 'NLM'"
+        ).fetchone()["c"]
+        if nlm_terms > 0 and nlm_ro == 0:
+            errors.append(
+                "no Romanian translations for NLM terms — run translate_curated_ro.py"
+            )
+
+        ids_path = EMBEDDINGS_DIR / "term_ids.npy"
+        if terms > 1000 and ids_path.exists():
+            npy_ids = {int(tid) for tid in np.load(ids_path)}
+            db_ids = {int(r["id"]) for r in conn.execute("SELECT id FROM terms").fetchall()}
+            stale = npy_ids - db_ids
+            if stale:
+                errors.append(
+                    f"{len(stale)} stale IDs in term_ids.npy — run build_semantic_index.py"
+                )
+            covered = len(npy_ids & db_ids)
+            coverage = covered / len(db_ids) if db_ids else 0.0
+            if coverage < MIN_EMBEDDING_COVERAGE:
+                errors.append(
+                    f"embedding coverage {coverage:.0%} ({covered}/{len(db_ids)}) "
+                    f"— run build_semantic_index.py"
+                )
 
     if errors:
         print("VALIDATION FAILED:")

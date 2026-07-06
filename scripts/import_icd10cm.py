@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.db import add_synonym, db_session, init_db, log_import, upsert_en_translation
-from scripts.common import RAW_DIR
+from scripts.common import RAW_DIR, print_reindex_warning
 
 ORDER_FILE = RAW_DIR / "icd10cm-order.txt"
 CSV_FILE = RAW_DIR / "icd10cm_data.csv"
@@ -128,6 +128,7 @@ def main() -> None:
             count = import_from_csv(conn)
         log_import(conn, "icd10cm", source, count)
     print(f"Imported {count} ICD-10-CM diagnosis codes from {source}.")
+    print_reindex_warning()
 
 
 if __name__ == "__main__":

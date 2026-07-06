@@ -18,7 +18,7 @@ from app.db import (
     log_import,
     upsert_en_translation,
 )
-from scripts.common import RAW_DIR
+from scripts.common import RAW_DIR, print_reindex_warning
 
 CONDITIONS_CSV = RAW_DIR / "nlm_conditions.csv"
 CONDITIONS_JSON = RAW_DIR / "nlm_conditions.json"
@@ -30,16 +30,38 @@ PROCEDURE_SPECIALTY_HINTS: dict[str, str] = {
     "cholecystectomy": "gi",
     "gastrectomy": "gi",
     "colectomy": "gi",
+    "colostomy": "gi",
     "hernia": "gi",
+    "hemorrhoid": "gi",
     "mastectomy": "general",
     "thyroidectomy": "general",
+    "parathyroidectomy": "general",
+    "splenectomy": "general",
     "prostatectomy": "urology",
     "nephrectomy": "urology",
+    "cystectomy": "urology",
+    "hysterectomy": "gynecology",
+    "cesarean": "gynecology",
     "craniotomy": "neurosurgery",
+    "laminectomy": "neurosurgery",
     "arthroplasty": "orthopaedic",
+    "arthroscopy": "orthopaedic",
+    "amputation": "orthopaedic",
     "cataract": "ophthalmology",
+    "vitrectomy": "ophthalmology",
     "bypass": "cardiothoracic",
     "valve": "cardiothoracic",
+    "lobectomy": "cardiothoracic",
+    "tracheostomy": "ent",
+    "tonsillectomy": "ent",
+    "rhinoplasty": "plastic",
+    "facelift": "plastic",
+    "endoscopy": "gi",
+    "biopsy": "general",
+    "transplant": "transplant",
+    "dialysis": "nephrology",
+    "angioplasty": "cardiology",
+    "stent": "cardiology",
 }
 
 
@@ -144,6 +166,7 @@ def main() -> None:
         log_import(conn, "nlm_conditions", "curated", dx)
         log_import(conn, "nlm_procedures", "curated", px)
     print(f"Imported {dx} conditions and {px} procedures from NLM curated tables.")
+    print_reindex_warning()
 
 
 if __name__ == "__main__":

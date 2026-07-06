@@ -14,6 +14,7 @@ from app.models import Term
 
 _RO_LOCALE_SYSTEMS = frozenset({"ACHI-RO", "ICD-10-AM-RO"})
 _FTS_NAME_COLS = {"en": "primary_name_en", "ro": "primary_name_ro"}
+_RRF_BONUS_WEIGHT = 0.05
 
 _model = None
 _model_lock = threading.Lock()
@@ -42,7 +43,7 @@ def _sanitize_fts_query(q: str) -> str:
 
 
 def _bm25_to_score(rank: float) -> float:
-    # SQLite FTS5 bm25: lower (more negative) = better match
+    # SQLite FTS5 bm25: lower (more negative) = better match; normalize later per result set
     return max(0.0, -float(rank))
 
 
@@ -115,6 +116,25 @@ def _exact_match_bonus(query: str, row: sqlite3.Row, locale: str) -> float:
     return 0.0
 
 
+def _rank_bonus(query: str, row: sqlite3.Row, locale: str) -> float:
+    return _layer_boost(row) * 0.15 + _exact_match_bonus(query, row, locale)
+
+
+def _normalize_term_scores(terms: list[Term]) -> None:
+    scored = [t for t in terms if t.score is not None]
+    if not scored:
+        return
+    values = [t.score for t in scored]
+    lo, hi = min(values), max(values)
+    if hi <= lo:
+        for term in scored:
+            term.score = 1.0
+        return
+    span = hi - lo
+    for term in scored:
+        term.score = (term.score - lo) / span
+
+
 def _display_name(row: sqlite3.Row, locale: str) -> tuple[str, bool, bool]:
     en_name = row["en_name"]
     ro_name = row["ro_name"]
@@ -149,7 +169,6 @@ def _row_to_term(
     row: sqlite3.Row,
     locale: str,
     score: float | None = None,
-    query: str = "",
 ) -> Term:
     display, fallback_en, fallback_ro = _display_name(row, locale)
     synonyms = []
@@ -157,9 +176,6 @@ def _row_to_term(
         synonyms.extend(row["aliases_en"].split())
     if locale == "ro" and row["aliases_ro"]:
         synonyms.extend(row["aliases_ro"].split())
-
-    if score is not None and query:
-        score = min(1.0, score + _exact_match_bonus(query, row, locale))
 
     return Term(
         id=row["id"],
@@ -205,6 +221,17 @@ def _base_select() -> str:
     """
 
 
+def _rows_for_ids(conn: sqlite3.Connection, ids: list[int]) -> dict[int, sqlite3.Row]:
+    if not ids:
+        return {}
+    placeholders = ",".join("?" * len(ids))
+    rows = conn.execute(
+        _base_select() + f" WHERE t.id IN ({placeholders})",
+        ids,
+    ).fetchall()
+    return {r["id"]: r for r in rows}
+
+
 def keyword_search(
     conn: sqlite3.Connection,
     query: str,
@@ -216,6 +243,7 @@ def keyword_search(
     if not fts_q:
         return []
 
+    # name_col is from a fixed locale whitelist — not user input
     name_col = _FTS_NAME_COLS.get(locale, "primary_name_en")
     sql = """
         SELECT t.id, bm25(terms_fts) AS fts_rank
@@ -228,7 +256,7 @@ def keyword_search(
         sql += " AND t.kind = ?"
         params.append(kind)
     sql += f" ORDER BY bm25(terms_fts), {name_col} LIMIT ?"
-    params.append(limit * 3)
+    params.append(limit * 5)
 
     try:
         hits = conn.execute(sql, params).fetchall()
@@ -238,25 +266,19 @@ def keyword_search(
     if not hits:
         return []
 
-    ids = [h["id"] for h in hits]
-    placeholders = ",".join("?" * len(ids))
-    rows = conn.execute(
-        _base_select() + f" WHERE t.id IN ({placeholders})",
-        ids,
-    ).fetchall()
-    row_map = {r["id"]: r for r in rows}
-
-    results: list[Term] = []
+    row_map = _rows_for_ids(conn, [h["id"] for h in hits])
+    scored: list[tuple[float, Term]] = []
     for hit in hits:
         row = row_map.get(hit["id"])
         if not row:
             continue
         fts_score = _bm25_to_score(hit["fts_rank"])
-        layer = _layer_boost(row) * 0.1
-        score = min(1.0, fts_score + layer + _exact_match_bonus(query, row, locale))
-        results.append(_row_to_term(row, locale, score, query))
-        if len(results) >= limit:
-            break
+        score = fts_score + _rank_bonus(query, row, locale)
+        scored.append((score, _row_to_term(row, locale, score)))
+
+    scored.sort(key=lambda item: -item[0])
+    results = [term for _, term in scored[:limit]]
+    _normalize_term_scores(results)
     return results
 
 
@@ -278,58 +300,46 @@ def semantic_search(
     model = _get_model()
     q_vec = model.encode([query], normalize_embeddings=True)[0]
     scores = matrix @ q_vec
-    top_n = min(limit * 5, len(scores))
+    top_n = min(len(scores), limit * 20)
     top_idx = np.argpartition(-scores, top_n - 1)[:top_n]
 
     candidates: list[tuple[int, float]] = []
     for idx in top_idx:
         tid = int(term_ids_arr[idx])
-        sim = float(scores[idx])
-        layer = 0.0
-        candidates.append((tid, sim))
+        candidates.append((tid, float(scores[idx])))
 
-    candidates.sort(key=lambda x: -x[1])
-    term_ids = [tid for tid, _ in candidates]
-
-    if kind and term_ids:
-        placeholders = ",".join("?" * len(term_ids))
+    if kind:
+        placeholders = ",".join("?" * len(candidates))
         allowed = {
             r["id"]
             for r in conn.execute(
                 f"SELECT id FROM terms WHERE id IN ({placeholders}) AND kind = ?",
-                [*term_ids, kind],
+                [tid for tid, _ in candidates] + [kind],
             ).fetchall()
         }
-        term_ids = [tid for tid in term_ids if tid in allowed]
+        candidates = [(tid, sim) for tid, sim in candidates if tid in allowed]
 
-    if not term_ids:
+    if not candidates:
         return []
 
-    sim_map = dict(candidates)
-    placeholders = ",".join("?" * len(term_ids[: limit * 3]))
-    rows = conn.execute(
-        _base_select() + f" WHERE t.id IN ({placeholders})",
-        term_ids[: limit * 3],
-    ).fetchall()
-    row_map = {r["id"]: r for r in rows}
+    row_map = _rows_for_ids(conn, [tid for tid, _ in candidates])
 
-    scored_terms: list[tuple[float, Term]] = []
-    for tid in term_ids:
+    scored: list[tuple[float, Term]] = []
+    for tid, sim in candidates:
         row = row_map.get(tid)
         if not row:
             continue
-        sim = sim_map[tid]
-        layer = _layer_boost(row) * 0.1
-        score = min(1.0, sim + layer + _exact_match_bonus(query, row, locale))
-        scored_terms.append((score, _row_to_term(row, locale, score, query)))
-        if len(scored_terms) >= limit:
-            break
+        score = sim + _rank_bonus(query, row, locale)
+        scored.append((score, _row_to_term(row, locale, score)))
 
-    scored_terms.sort(key=lambda x: -x[0])
-    return [t for _, t in scored_terms[:limit]]
+    scored.sort(key=lambda item: -item[0])
+    results = [term for _, term in scored[:limit]]
+    _normalize_term_scores(results)
+    return results
 
 
 def _rrf_merge(
+    conn: sqlite3.Connection,
     kw: list[Term],
     sem: list[Term],
     query: str,
@@ -348,12 +358,21 @@ def _rrf_merge(
         if term.id not in term_map:
             term_map[term.id] = term
 
-    ranked_ids = sorted(rrf_scores.keys(), key=lambda i: -rrf_scores[i])
-    results: list[Term] = []
-    for tid in ranked_ids[:limit]:
+    candidate_ids = list(rrf_scores.keys())
+    row_map = _rows_for_ids(conn, candidate_ids)
+
+    blended: list[tuple[float, Term]] = []
+    for tid, base_rrf in rrf_scores.items():
+        row = row_map.get(tid)
+        bonus = _rank_bonus(query, row, locale) if row else 0.0
+        score = base_rrf + bonus * _RRF_BONUS_WEIGHT
         term = term_map[tid]
-        term.score = min(1.0, rrf_scores[tid])
-        results.append(term)
+        term.score = score
+        blended.append((score, term))
+
+    blended.sort(key=lambda item: -item[0])
+    results = [term for _, term in blended[:limit]]
+    _normalize_term_scores(results)
     return results
 
 
@@ -364,16 +383,17 @@ def hybrid_search(
     kind: str | None = None,
     limit: int = 20,
 ) -> list[Term]:
-    kw = keyword_search(conn, query, locale, kind, limit)
+    kw = keyword_search(conn, query, locale, kind, limit * 2)
     try:
-        sem = semantic_search(conn, query, locale, kind, limit)
+        sem = semantic_search(conn, query, locale, kind, limit * 2)
     except SemanticIndexNotReady:
         sem = []
     if not sem:
-        return kw
+        return kw[:limit]
     if not kw:
-        return sem
-    return _rrf_merge(kw, sem, query, locale, limit)
+        return sem[:limit]
+    merged = _rrf_merge(conn, kw, sem, query, locale, limit)
+    return merged
 
 
 def search_terms(
@@ -403,9 +423,5 @@ def get_term(conn: sqlite3.Connection, term_id: int, locale: str = "en") -> Term
 def get_terms_batch(conn: sqlite3.Connection, term_ids: list[int], locale: str = "en") -> list[Term]:
     if not term_ids:
         return []
-    placeholders = ",".join("?" * len(term_ids))
-    rows = conn.execute(
-        _base_select() + f" WHERE t.id IN ({placeholders})",
-        term_ids,
-    ).fetchall()
-    return [_row_to_term(r, locale) for r in rows]
+    row_map = _rows_for_ids(conn, term_ids)
+    return [_row_to_term(row_map[tid], locale) for tid in term_ids if tid in row_map]

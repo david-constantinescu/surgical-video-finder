@@ -94,10 +94,28 @@
     }[c]));
   }
 
-  function renderEmptySearch() {
+  function renderExamples() {
     const container = $("#searchResults");
     container.innerHTML = `
-      <p class="empty-msg">${t("search.suggestionsTitle")}</p>
+      <p class="empty-msg">${t("search.examplesTitle")}</p>
+      <div class="suggestions">
+        ${(i18n["search.suggestions"] || "").split("|").map((s) =>
+          `<button type="button" class="suggestion-btn">${escapeHtml(s.trim())}</button>`
+        ).join("")}
+      </div>
+    `;
+    container.querySelectorAll(".suggestion-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        $("#searchInput").value = btn.textContent;
+        doSearch();
+      });
+    });
+  }
+
+  function renderNoResults() {
+    const container = $("#searchResults");
+    container.innerHTML = `
+      <p class="empty-msg">${t("search.noResultsTry")}</p>
       <div class="suggestions">
         ${(i18n["search.suggestions"] || "").split("|").map((s) =>
           `<button type="button" class="suggestion-btn">${escapeHtml(s.trim())}</button>`
@@ -122,9 +140,8 @@
       lastResults = [];
       return;
     }
-
-    container.innerHTML = `<p class="empty-msg loading"><span class="spinner"></span> ${t("search.loading")}</p>`;
     countEl.textContent = "";
+    container.innerHTML = `<p class="empty-msg loading"><span class="spinner"></span> ${t("search.loading")}</p>`;
     const mode = $("#searchMode").value;
     const kind = $("#kindFilter").value;
     const params = new URLSearchParams({ q, lang, mode, limit: "20" });
@@ -140,7 +157,7 @@
       lastResults = data.results || [];
       resultIndex = -1;
       if (!lastResults.length) {
-        renderEmptySearch();
+        renderNoResults();
         return;
       }
       countEl.textContent = t("search.resultCount").replace("{n}", data.count);
@@ -177,10 +194,11 @@
   function renderResult(term, index) {
     const kindLabel = term.kind === "procedure" ? t("results.kind.procedure") : t("results.kind.diagnosis");
     const layerLabel = term.layer === "curated" ? t("results.layer.curated") : t("results.layer.comprehensive");
-    const code = term.code ? `<span class="tag">${t("results.code")}: ${escapeHtml(term.code)}</span>` : "";
+    const code = term.code
+      ? `<span class="tag">${t("results.code")}: ${escapeHtml(term.code)}${term.code_system ? ` (${escapeHtml(term.code_system)})` : ""}</span>`
+      : "";
     const enBadge = term.fallback_en ? `<span class="tag en-fallback">${t("results.fallbackEn")}</span>` : "";
     const roBadge = term.fallback_ro ? `<span class="tag ro-fallback">${t("results.fallbackRo")}</span>` : "";
-    const langFlag = term.fallback_ro ? "" : (lang === "ro" && term.fallback_en ? "" : "");
 
     return `
       <div class="result-item" data-index="${index}" role="option">
@@ -189,7 +207,7 @@
           <div class="result-tags">
             <span class="tag">${kindLabel}</span>
             <span class="tag">${layerLabel}</span>
-            ${code}${enBadge}${roBadge}${langFlag}
+            ${code}${enBadge}${roBadge}
           </div>
         </div>
         <button type="button" class="add-btn" data-id="${term.id}" ${selected.has(term.id) ? "disabled" : ""}>
@@ -295,6 +313,6 @@
   loadSelected();
   loadI18n().then(() => {
     renderSelected();
-    renderEmptySearch();
+    renderExamples();
   });
 })();

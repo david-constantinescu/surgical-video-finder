@@ -60,7 +60,7 @@ Hybrid ranking uses **reciprocal rank fusion (RRF)** to merge keyword and semant
 rrf_score = Σ 1 / (RRF_K + rank_i)   # RRF_K = 60 by default
 ```
 
-Each list contributes by position (rank 1, 2, 3…). Keyword ranks come from FTS5 `bm25()` (more negative = better match), converted to a 0–1 score for display only. Semantic results are sorted by cosine similarity before fusion. Curated NLM terms and flagged surgical procedures receive a small layer boost applied after fusion.
+Each list contributes by position (rank 1, 2, 3…). Keyword ranks come from FTS5 `bm25()` (more negative = better match), mapped to a 0–1 display score via `1 / (1 + max(0, -rank))`. Layer and exact-match bonuses are applied to the final RRF score (not discarded after list merge). Returned scores are min–max normalized within each result set to a 0–1 range.
 
 ## Deployment notes
 
