@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS video_results (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   term_id       INTEGER REFERENCES terms(id) ON DELETE CASCADE,
   source_id     INTEGER REFERENCES video_sources(id) ON DELETE CASCADE,
+  external_id   TEXT,
   title         TEXT,
   url           TEXT NOT NULL,
   thumbnail_url TEXT,
@@ -83,7 +84,14 @@ CREATE INDEX IF NOT EXISTS idx_terms_layer ON terms(layer);
 CREATE INDEX IF NOT EXISTS idx_synonyms_term ON synonyms(term_id);
 CREATE INDEX IF NOT EXISTS idx_synonyms_locale ON synonyms(locale);
 CREATE INDEX IF NOT EXISTS idx_translations_locale ON term_translations(locale);
+CREATE INDEX IF NOT EXISTS idx_video_results_term_source ON video_results(term_id, source_id);
 """
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(video_results)")}
+    if "external_id" not in cols:
+        conn.execute("ALTER TABLE video_results ADD COLUMN external_id TEXT")
 
 
 def ensure_data_dir() -> None:
@@ -128,6 +136,7 @@ def db_session(db_path: Path | None = None):
 def init_db(db_path: Path | None = None) -> None:
     with db_session(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+        _apply_migrations(conn)
 
 
 def log_import(conn: sqlite3.Connection, source_name: str, version: str, row_count: int) -> None:

@@ -37,6 +37,16 @@
   "videos.tier.search_link": "External search",
   "videos.tier.curated_feed": "Curated",
   "videos.open": "Open",
+  "videos.inlineTitle": "Videos & articles",
+  "videos.source.youtube": "YouTube",
+  "videos.source.vimeo": "Vimeo",
+  "videos.source.pubmed": "PubMed",
+  "videos.play": "Play",
+  "videos.read": "Read article",
+  "videos.moreSources": "More platforms",
+  "videos.cached": "cached",
+  "videos.youtubeHint": "Optional: set YOUTUBE_API_KEY for official API quota. Inline YouTube + PubMed work without keys.",
+  "videos.embedOpen": "Open on site",
   "disclaimer": "Educational use only. Video content is not peer-reviewed or endorsed by this app.",
   "error.generic": "Something went wrong. Please try again."
 }

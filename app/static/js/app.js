@@ -243,12 +243,99 @@
       container.innerHTML = groups.map((grp) => `
         <section class="video-group">
           <h3 class="video-group-title">${escapeHtml(grp.term_name)}</h3>
-          ${grp.sources.map((src) => renderVideoLink(src)).join("")}
+          ${renderInlineVideos(grp.inline_videos || [])}
+          ${(grp.sources || []).length ? `<h4 class="video-subheading">${t("videos.moreSources")}</h4>` : ""}
+          ${(grp.sources || []).map((src) => renderVideoLink(src)).join("")}
         </section>
       `).join("");
+      bindInlineVideoHandlers();
     } catch {
       container.innerHTML = `<p class="empty-msg">${t("error.generic")}</p>`;
     }
+  }
+
+  function renderInlineVideos(videos) {
+    if (!videos.length) return "";
+    const bySource = videos.reduce((acc, video) => {
+      const key = video.source || "other";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(video);
+      return acc;
+    }, {});
+
+    const order = ["youtube", "vimeo", "pubmed"];
+    const sections = order.filter((k) => bySource[k]?.length);
+    Object.keys(bySource).forEach((k) => {
+      if (!sections.includes(k)) sections.push(k);
+    });
+
+    return `
+      <h4 class="video-subheading">${t("videos.inlineTitle")}</h4>
+      ${sections.map((source) => `
+        <h5 class="video-source-heading">${t(`videos.source.${source}`) || source}</h5>
+        <div class="video-thumb-grid">
+          ${bySource[source].map((video) => renderInlineCard(video)).join("")}
+        </div>
+      `).join("")}
+    `;
+  }
+
+  function renderInlineCard(video) {
+    const isArticle = video.media_type === "article";
+    const thumb = video.thumbnail_url
+      ? `<img class="video-card-thumb" src="${escapeHtml(video.thumbnail_url)}" alt="" loading="lazy">`
+      : `<div class="video-card-thumb video-card-thumb--empty ${isArticle ? "video-card-thumb--article" : ""}">
+           <span class="video-card-icon">${isArticle ? "📄" : "▶"}</span>
+         </div>`;
+    const action = isArticle
+      ? `<a class="video-card-action" href="${video.url}" target="_blank" rel="noopener noreferrer">${t("videos.read")}</a>`
+      : (video.embed_url
+        ? `<button type="button" class="video-card-action" data-embed-play
+            data-embed-url="${escapeHtml(video.embed_url)}"
+            data-external-url="${escapeHtml(video.url)}"
+            data-embed-title="${escapeHtml(video.title)}">${t("videos.play")}</button>`
+        : `<a class="video-card-action" href="${video.url}" target="_blank" rel="noopener noreferrer">${t("videos.open")}</a>`);
+
+    return `
+      <article class="video-card">
+        ${thumb}
+        <div class="video-card-body">
+          <div class="video-card-title" title="${escapeHtml(video.title)}">${escapeHtml(truncate(video.title, 64))}</div>
+          ${video.channel ? `<div class="video-card-channel">${escapeHtml(video.channel)}</div>` : ""}
+          <div class="video-card-actions">${action}</div>
+        </div>
+      </article>
+    `;
+  }
+
+  function bindInlineVideoHandlers() {
+    document.querySelectorAll("[data-embed-play]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openEmbedModal(btn.dataset.embedUrl, btn.dataset.externalUrl, btn.dataset.embedTitle);
+      });
+    });
+    document.querySelectorAll("[data-embed-close]").forEach((el) => {
+      el.addEventListener("click", closeEmbedModal);
+    });
+  }
+
+  function openEmbedModal(embedUrl, externalUrl, title) {
+    const modal = $("#embedModal");
+    const frame = $("#embedFrame");
+    $("#embedModalTitle").textContent = title || "";
+    frame.src = embedUrl;
+    const link = $("#embedExternalLink");
+    link.href = externalUrl || embedUrl;
+    link.textContent = t("videos.embedOpen");
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+  }
+
+  function closeEmbedModal() {
+    const modal = $("#embedModal");
+    modal.hidden = true;
+    $("#embedFrame").src = "";
+    document.body.classList.remove("modal-open");
   }
 
   function renderVideoLink(src) {
@@ -289,6 +376,9 @@
   $("#findVideosBtn").addEventListener("click", findVideos);
 
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#embedModal").hidden) {
+      closeEmbedModal();
+    }
     if (e.key === "/" && document.activeElement !== $("#searchInput")) {
       e.preventDefault();
       $("#searchInput").focus();

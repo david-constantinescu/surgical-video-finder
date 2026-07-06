@@ -37,6 +37,16 @@
   "videos.tier.search_link": "Căutare externă",
   "videos.tier.curated_feed": "Curat",
   "videos.open": "Deschide",
+  "videos.inlineTitle": "Videoclipuri și articole",
+  "videos.source.youtube": "YouTube",
+  "videos.source.vimeo": "Vimeo",
+  "videos.source.pubmed": "PubMed",
+  "videos.play": "Redă",
+  "videos.read": "Citește articolul",
+  "videos.moreSources": "Alte platforme",
+  "videos.cached": "din cache",
+  "videos.youtubeHint": "Opțional: YOUTUBE_API_KEY pentru API oficial. YouTube și PubMed funcționează fără chei.",
+  "videos.embedOpen": "Deschide pe site",
   "disclaimer": "Doar pentru uz educațional. Conținutul video nu este evaluat peer-review și nu este avizat de această aplicație.",
   "error.generic": "A apărut o eroare. Încercați din nou."
 }

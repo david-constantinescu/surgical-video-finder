@@ -57,7 +57,16 @@ Visit http://localhost:5001
 1. Choose **EN** or **RO** in the header.
 2. Search for diagnoses or procedures (e.g. `appendectomy`, `apendicectomie`).
 3. Click **Add** on results to build your selection.
-4. Click **Find videos** to open links across 46 platforms.
+4. Click **Find videos** — outbound links to 46 platforms, plus **inline YouTube thumbnails** and PubMed articles (no API keys required).
+
+### Inline videos (no API keys required)
+
+**Find videos** shows YouTube thumbnails and PubMed articles out of the box — no API keys needed. Click **Play** to embed YouTube in-page.
+
+Optional upgrades:
+- `YOUTUBE_API_KEY` — official YouTube Data API (more reliable at scale)
+- `VIMEO_TOKEN` — inline Vimeo results
+- `NOKEY_SEARCH_INSTANCES` — comma-separated Piped/Invidious bases if defaults are down
 
 ## Troubleshooting
 
@@ -67,6 +76,7 @@ Visit http://localhost:5001
 | Empty search results | Run `build_search_index.py` after imports |
 | Reimported NLM/ICD rows but RO search broken | Importers cascade-delete translations/embeddings — re-run `translate_curated_ro.py`, `enrich_metadata.py`, `build_search_index.py`, `build_semantic_index.py` (or `build_all.py`) |
 | Port 5000 in use (macOS AirPlay) | Default is **5001**; set `FLASK_PORT` in `.env` |
+| No YouTube thumbnails, only links | Public Piped/Invidious instances may be down — set `NOKEY_SEARCH_INSTANCES` or optional `YOUTUBE_API_KEY`; check `/api/health` for `"youtube": true` |
 | Romanian labels show `[EN]` | Optional `icd10.ro` Excel failed to download; add overrides in `data/curated_ro_overrides.csv` |
 
 ## Health check

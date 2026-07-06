@@ -9,7 +9,7 @@ import unicodedata
 
 import numpy as np
 
-from app.config import EMBEDDINGS_DIR, RRF_K
+from app.config import EMBEDDINGS_DIR, RRF_K, SEMANTIC_MIN_SIMILARITY
 from app.models import Term
 
 _RO_LOCALE_SYSTEMS = frozenset({"ACHI-RO", "ICD-10-AM-RO"})
@@ -306,7 +306,10 @@ def semantic_search(
     candidates: list[tuple[int, float]] = []
     for idx in top_idx:
         tid = int(term_ids_arr[idx])
-        candidates.append((tid, float(scores[idx])))
+        sim = float(scores[idx])
+        if sim < SEMANTIC_MIN_SIMILARITY:
+            continue
+        candidates.append((tid, sim))
 
     if kind:
         placeholders = ",".join("?" * len(candidates))

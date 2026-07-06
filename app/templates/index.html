@@ -57,6 +57,21 @@
     </section>
   </main>
 
+  <div id="embedModal" class="embed-modal" hidden>
+    <div class="embed-modal-backdrop" data-embed-close></div>
+    <div class="embed-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="embedModalTitle">
+      <div class="embed-modal-header">
+        <h3 id="embedModalTitle" class="embed-modal-title"></h3>
+        <button type="button" class="embed-modal-close" data-embed-close aria-label="Close">&times;</button>
+      </div>
+      <div class="embed-modal-body">
+        <iframe id="embedFrame" class="embed-frame" title="Video player" allowfullscreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+      </div>
+      <a id="embedExternalLink" class="embed-external-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+  </div>
+
   <footer class="footer">
     <p data-i18n="disclaimer">Educational use only.</p>
   </footer>

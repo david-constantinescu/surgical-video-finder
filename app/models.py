@@ -23,6 +23,19 @@ class Term:
 
 
 @dataclass
+class CachedVideo:
+    title: str
+    url: str
+    source: str
+    thumbnail_url: str | None = None
+    channel: str | None = None
+    external_id: str | None = None
+    embed_url: str | None = None
+    media_type: str = "video"
+    cached: bool = True
+
+
+@dataclass
 class VideoSourceLink:
     name: str
     slug: str
@@ -41,3 +54,4 @@ class VideoLinkGroup:
     term_id: int
     term_name: str
     sources: list[VideoSourceLink]
+    inline_videos: list[CachedVideo] = field(default_factory=list)

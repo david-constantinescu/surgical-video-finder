@@ -39,6 +39,10 @@ def _infer_specialty(term: Term) -> str | None:
     return None
 
 
+def query_for_term(term: Term, locale: str, slug: str | None = None) -> str:
+    return _query_for_term(term, locale, slug)
+
+
 def _query_for_term(term: Term, locale: str, slug: str | None = None) -> str:
     name = (term.video_query or term.display_name).strip()
     if slug in _SUFFIX_IN_URL:

@@ -70,7 +70,7 @@ Copy `.env.example` to `.env`:
 ```env
 FLASK_PORT=5001
 FLASK_DEBUG=0
-YOUTUBE_API_KEY=          # optional; Phase 2 video caching
+YOUTUBE_API_KEY=          # optional; official YouTube API (inline works without it)
 VIMEO_TOKEN=              # optional
 ```
 

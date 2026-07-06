@@ -44,7 +44,7 @@ Phase 1 does **not** scrape or embed videos. `video_links.py` builds outbound UR
 - Per-source URL templates in `video_sources`
 - Query suffixes (`surgery`, `chirurgie`, `operative video`, etc.)
 
-Phase 2 (planned) adds YouTube Data API caching into `video_results`.
+Phase 2 adds inline results **without API keys** by default: YouTube via public Piped/Invidious search APIs, PubMed via NCBI E-utilities, and in-page embed playback. Optional `YOUTUBE_API_KEY` / `VIMEO_TOKEN` improve reliability when set.
 
 ## Search modes
 
@@ -60,10 +60,10 @@ Hybrid ranking uses **reciprocal rank fusion (RRF)** to merge keyword and semant
 rrf_score = Σ 1 / (RRF_K + rank_i)   # RRF_K = 60 by default
 ```
 
-Each list contributes by position (rank 1, 2, 3…). Keyword ranks come from FTS5 `bm25()` (more negative = better match), mapped to a 0–1 display score via `1 / (1 + max(0, -rank))`. Layer and exact-match bonuses are applied to the final RRF score (not discarded after list merge). Returned scores are min–max normalized within each result set to a 0–1 range.
+Each list contributes by position (rank 1, 2, 3…). Keyword ranks use FTS5 `bm25()` (more negative = better match), converted via `max(0, -rank)` before bonuses. Semantic candidates below `SEMANTIC_MIN_SIMILARITY` (default 0.4) are dropped. Layer and exact-match bonuses apply to the final RRF score. Returned scores are min–max normalized within each result set to a 0–1 range.
 
 ## Deployment notes
 
 - The SQLite database (`data/surgical.db`) is built locally and gitignored (~100MB+ with embeddings).
 - First `python scripts/build_all.py` run downloads public files and may take 30–60 minutes including semantic indexing.
-- Optional: set `YOUTUBE_API_KEY` in `.env` for future API caching.
+- Inline YouTube/PubMed work without API keys (Piped/Invidious + NCBI). Optional `YOUTUBE_API_KEY` / `VIMEO_TOKEN` improve reliability.

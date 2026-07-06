@@ -12,6 +12,10 @@ from flask import Flask, g, jsonify, render_template, request
 from app import config
 from app.config import DEFAULT_LOCALE, FLASK_DEBUG, FLASK_HOST, FLASK_PORT, SUPPORTED_LOCALES
 from app.db import db_read_session, init_db
+from app.inline_videos import (
+    enrich_groups_with_inline_videos,
+    inline_api_status,
+)
 from app.search import SemanticIndexNotReady, get_term, get_terms_batch, search_terms
 from app.video_links import build_video_link_groups
 
@@ -156,6 +160,14 @@ def create_app() -> Flask:
 
         terms = get_terms_batch(g.db, ids, lang)
         groups = build_video_link_groups(g.db, terms, lang)
+        if request.args.get("inline", "1") != "0":
+            enrich_groups_with_inline_videos(
+                g.db,
+                groups,
+                terms,
+                lang,
+                force_refresh=request.args.get("refresh") == "1",
+            )
         flat = [link for g in groups for link in g.sources]
 
         return jsonify({
@@ -164,12 +176,15 @@ def create_app() -> Flask:
                 {
                     "term_id": grp.term_id,
                     "term_name": grp.term_name,
+                    "inline_videos": [asdict(v) for v in grp.inline_videos],
                     "sources": [asdict(s) for s in grp.sources],
                 }
                 for grp in groups
             ],
             "sources": [asdict(link) for link in flat],
             "lang": lang,
+            "inline_apis": inline_api_status(),
+            "youtube_api": inline_api_status()["youtube"],
         })
 
     @app.get("/api/sources")
@@ -207,6 +222,8 @@ def create_app() -> Flask:
             "db": True,
             "terms": term_count,
             "video_sources": source_count,
+            "inline_apis": inline_api_status(),
+            "youtube_api": inline_api_status()["youtube"],
         })
 
     return app
