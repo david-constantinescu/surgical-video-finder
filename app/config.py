@@ -18,7 +18,12 @@ EMBEDDING_DIM = 384  # paraphrase-multilingual-MiniLM-L12-v2 output size
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 VIMEO_TOKEN = os.getenv("VIMEO_TOKEN", "")
 NCBI_CONTACT_EMAIL = os.getenv("NCBI_CONTACT_EMAIL", "dev@localhost")
-_default_nokey = "https://pipedapi.kavin.rocks,https://pipedapi.adminforge.de"
+_default_nokey = (
+    "https://pipedapi.kavin.rocks,"
+    "https://pipedapi.adminforge.de,"
+    "https://pipedapi.in.projectsegfau.lt,"
+    "https://invidious.fdn.fr"
+)
 NOKEY_SEARCH_INSTANCES = [
     u.strip() for u in os.getenv("NOKEY_SEARCH_INSTANCES", _default_nokey).split(",") if u.strip()
 ]

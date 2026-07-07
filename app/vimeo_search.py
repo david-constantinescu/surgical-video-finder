@@ -1,4 +1,4 @@
-"""Vimeo API search with SQLite caching."""
+"""Vimeo inline search — official API when tokened, no-key search fallback."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import requests
 
 from app.config import INLINE_CACHE_TTL_HOURS, VIMEO_MAX_RESULTS, VIMEO_TOKEN
 from app.models import CachedVideo, Term
+from app.nokey_vimeo import search_vimeo_nokey
 from app.video_cache import fetch_or_cache, with_embed_urls
 from app.video_links import query_for_term
 
@@ -17,8 +18,16 @@ SOURCE_SLUG = "vimeo"
 _VIMEO_ID_RE = re.compile(r"/videos/(\d+)")
 
 
-def vimeo_api_enabled() -> bool:
+def vimeo_official_api_enabled() -> bool:
     return bool(VIMEO_TOKEN.strip())
+
+
+def vimeo_inline_enabled() -> bool:
+    return True
+
+
+# Backward-compatible alias
+vimeo_api_enabled = vimeo_official_api_enabled
 
 
 def _parse_vimeo_id(uri: str) -> str | None:
@@ -26,8 +35,8 @@ def _parse_vimeo_id(uri: str) -> str | None:
     return match.group(1) if match else None
 
 
-def search_vimeo_api(query: str, max_results: int | None = None) -> list[CachedVideo]:
-    if not vimeo_api_enabled():
+def search_vimeo_official(query: str, max_results: int | None = None) -> list[CachedVideo]:
+    if not vimeo_official_api_enabled():
         return []
 
     limit = max_results or VIMEO_MAX_RESULTS
@@ -63,6 +72,19 @@ def search_vimeo_api(query: str, max_results: int | None = None) -> list[CachedV
     return videos
 
 
+def search_vimeo(query: str, max_results: int | None = None) -> list[CachedVideo]:
+    if vimeo_official_api_enabled():
+        try:
+            return search_vimeo_official(query, max_results)
+        except requests.RequestException:
+            pass
+    return search_vimeo_nokey(query, max_results)
+
+
+# Backward-compatible name
+search_vimeo_api = search_vimeo
+
+
 def get_vimeo_results_for_term(
     conn: sqlite3.Connection,
     term: Term,
@@ -70,9 +92,6 @@ def get_vimeo_results_for_term(
     *,
     force_refresh: bool = False,
 ) -> list[CachedVideo]:
-    if not vimeo_api_enabled():
-        return []
-
     query = query_for_term(term, locale, SOURCE_SLUG)
     videos = fetch_or_cache(
         conn,
@@ -80,7 +99,7 @@ def get_vimeo_results_for_term(
         locale,
         SOURCE_SLUG,
         INLINE_CACHE_TTL_HOURS,
-        lambda q: search_vimeo_api(q),
+        lambda q: search_vimeo(q),
         query,
         force_refresh=force_refresh,
     )

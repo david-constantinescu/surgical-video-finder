@@ -4,6 +4,8 @@ A bilingual (**English / Romanian**) web app for surgeons to search pathologies 
 
 Built with **Python (Flask)**, **SQLite**, **HTML/CSS/JS**.
 
+![App preview](docs/assets/app-preview.svg)
+
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -12,7 +14,8 @@ Built with **Python (Flask)**, **SQLite**, **HTML/CSS/JS**.
 - **161,000+ indexed terms** — NLM curated tables + ICD-10-CM + ICD-10-PCS + Romanian ACHI procedures
 - **Hybrid search** — FTS5 keyword index + multilingual semantic embeddings (`smart` / `keyword` / `semantic` modes)
 - **EN ↔ RO** — UI, API, and search in English or Romanian
-- **46 video sources** — YouTube, CSurgeries, JOMI, WebSurg, specialty societies, Romanian hospitals, and more (hyperlink search; no scraping)
+- **Inline video embeds** — YouTube/Vimeo thumbnails and in-page player without API keys (Piped/Invidious + oEmbed); PubMed articles via NCBI
+- **46 video sources** — CSurgeries, JOMI, WebSurg, specialty societies, Romanian hospitals, and more (hyperlink search; no scraping)
 - **Local-first** — SQLite database, runs offline after initial build
 
 ## Quick start
@@ -44,6 +47,7 @@ Open **http://localhost:5001** (default port avoids macOS AirPlay on 5000)
 | [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | Terminology sources and rebuild steps |
 | [docs/VIDEO_SOURCES.md](docs/VIDEO_SOURCES.md) | Full video platform catalog |
 | [docs/I18N.md](docs/I18N.md) | English / Romanian internationalization |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup and PR guidelines |
 
 ## API
 
@@ -52,7 +56,7 @@ Open **http://localhost:5001** (default port avoids macOS AirPlay on 5000)
 | `GET /api/terms/search?q=&lang=ro&mode=hybrid` | Search terms |
 | `GET /api/terms/{id}?lang=ro` | Term detail |
 | `POST /api/terms/batch` | `{"ids":[1,2],"lang":"ro"}` |
-| `GET /api/videos/links?term_ids=1,2&lang=ro` | Video source links |
+| `GET /api/videos/links?term_ids=1,2&lang=ro&refresh=1` | Video links + inline embeds (`refresh=1` bypasses cache) |
 | `GET /api/i18n/{lang}` | UI translations |
 | `GET /api/health` | DB status |
 
@@ -71,7 +75,7 @@ Copy `.env.example` to `.env`:
 FLASK_PORT=5001
 FLASK_DEBUG=0
 YOUTUBE_API_KEY=          # optional; official YouTube API (inline works without it)
-VIMEO_TOKEN=              # optional
+VIMEO_TOKEN=              # optional; official Vimeo API (inline works without it)
 ```
 
 ## Project structure

@@ -178,6 +178,34 @@ h2 { margin: 0 0 0.75rem; font-size: 1.1rem; }
 .primary-btn:hover:not(:disabled) { background: var(--accent-hover); }
 .primary-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.secondary-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.secondary-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.secondary-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.selected-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.video-card-cache {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

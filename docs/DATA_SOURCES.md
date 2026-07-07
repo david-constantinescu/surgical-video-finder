@@ -45,6 +45,7 @@ Individual steps:
 ```bash
 python scripts/download_sources.py
 python scripts/import_curated.py
+python scripts/backfill_nlm_specialties.py   # safe; updates NLM specialty tags only
 python scripts/import_icd10cm.py
 python scripts/import_icd10pcs.py
 python scripts/import_icd10am_ro.py

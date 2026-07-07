@@ -13,6 +13,7 @@ SCRIPTS = ROOT / "scripts"
 STEPS = [
     "download_sources.py",
     "import_curated.py",
+    "backfill_nlm_specialties.py",
     "import_icd10cm.py",
     "import_icd10pcs.py",
     "import_icd10am_ro.py",

@@ -16,6 +16,7 @@ from app.db import db_session, init_db
 
 POLLUTED_MARKERS = ("Header:", "Specific long description about this code:")
 MIN_EMBEDDING_COVERAGE = 0.9
+MIN_NLM_SPECIALTY_RATIO = 0.2
 
 
 def main() -> None:
@@ -57,6 +58,23 @@ def main() -> None:
             errors.append(
                 "no Romanian translations for NLM terms — run translate_curated_ro.py"
             )
+
+        nlm_px_tagged = conn.execute(
+            """
+            SELECT COUNT(*) AS c FROM terms
+            WHERE code_system = 'NLM' AND kind = 'procedure' AND specialty IS NOT NULL
+            """
+        ).fetchone()["c"]
+        nlm_px = conn.execute(
+            "SELECT COUNT(*) AS c FROM terms WHERE code_system = 'NLM' AND kind = 'procedure'"
+        ).fetchone()["c"]
+        if nlm_px > 0:
+            ratio = nlm_px_tagged / nlm_px
+            if ratio < MIN_NLM_SPECIALTY_RATIO:
+                errors.append(
+                    f"only {nlm_px_tagged}/{nlm_px} NLM procedures tagged with specialty "
+                    f"({ratio:.0%}) — run scripts/backfill_nlm_specialties.py"
+                )
 
         ids_path = EMBEDDINGS_DIR / "term_ids.npy"
         if terms > 1000 and ids_path.exists():

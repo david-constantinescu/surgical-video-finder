@@ -106,12 +106,18 @@ def _exact_match_bonus(query: str, row: sqlite3.Row, locale: str) -> float:
         (row["primary_name"] or "").lower(),
         (row["code"] or "").lower(),
     ]
+    q_tokens = set(re.findall(r"\w+", q, flags=re.UNICODE))
     for name in names:
         if not name:
             continue
         if name == q:
             return 0.5
-        if name.startswith(q) or q in name.split():
+        if name.startswith(q):
+            return 0.25
+        name_tokens = set(re.findall(r"\w+", name, flags=re.UNICODE))
+        if q_tokens and q_tokens <= name_tokens:
+            return 0.25
+        if q in name.split():
             return 0.25
     return 0.0
 

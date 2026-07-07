@@ -44,14 +44,22 @@
       <h2 data-i18n="selected.title">Selected terms</h2>
       <p id="selectedEmpty" class="muted" data-i18n="selected.empty">Add terms from search results.</p>
       <div id="selectedChips" class="chips"></div>
-      <button type="button" id="findVideosBtn" class="primary-btn" disabled data-i18n="videos.search">
-        Find videos
-      </button>
+      <div class="selected-actions">
+        <button type="button" id="findVideosBtn" class="primary-btn" disabled data-i18n="videos.search">
+          Find videos
+        </button>
+        <button type="button" id="refreshVideosBtn" class="secondary-btn" hidden data-i18n="videos.refresh">
+          Refresh results
+        </button>
+        <button type="button" id="clearSelectedBtn" class="secondary-btn" disabled data-i18n="selected.clear">
+          Clear all
+        </button>
+      </div>
     </section>
 
     <section class="panel videos-panel">
       <h2 data-i18n="videos.title">Video sources</h2>
-      <p class="muted" data-i18n="videos.subtitle">Open external platforms to find operative videos.</p>
+      <p class="muted" data-i18n="videos.subtitle">Inline YouTube/Vimeo embeds and PubMed articles, plus links to 46 platforms.</p>
       <p id="videosEmpty" class="muted" data-i18n="videos.empty">Select at least one term.</p>
       <div id="videoLinks" class="video-links"></div>
     </section>

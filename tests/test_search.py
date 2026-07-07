@@ -11,6 +11,7 @@ from app.search import (
     SemanticIndexNotReady,
     _bm25_to_score,
     _display_name,
+    _exact_match_bonus,
     _sanitize_fts_query,
     _strip_diacritics,
     semantic_search,
@@ -30,6 +31,17 @@ def test_bm25_negative_rank_scores_higher_for_better_matches():
     good = _bm25_to_score(-5.0)
     bad = _bm25_to_score(10.0)
     assert good > bad
+
+
+def test_exact_match_bonus_multi_word_phrase():
+    row = {
+        "en_name": "Unspecified acute appendicitis",
+        "ro_name": None,
+        "primary_name": "Unspecified acute appendicitis",
+        "code": "K358",
+    }
+    bonus = _exact_match_bonus("acute appendicitis", row, "en")
+    assert bonus == 0.25
 
 
 def test_display_name_en_marks_achi_as_fallback_ro():

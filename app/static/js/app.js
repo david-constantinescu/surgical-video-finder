@@ -60,10 +60,12 @@
     if (selected.size === 0) {
       empty.style.display = "block";
       btn.disabled = true;
+      $("#clearSelectedBtn").disabled = true;
       return;
     }
     empty.style.display = "none";
     btn.disabled = false;
+    $("#clearSelectedBtn").disabled = false;
 
     selected.forEach((term) => {
       const chip = document.createElement("span");
@@ -223,7 +225,7 @@
     });
   }
 
-  async function findVideos() {
+  async function findVideos(forceRefresh = false) {
     const container = $("#videoLinks");
     const empty = $("#videosEmpty");
     if (selected.size === 0) return;
@@ -232,8 +234,9 @@
     container.innerHTML = `<p class="empty-msg loading"><span class="spinner"></span> ${t("videos.loading")}</p>`;
 
     const ids = Array.from(selected.keys()).join(",");
+    const refreshParam = forceRefresh ? "&refresh=1" : "";
     try {
-      const res = await fetch(`/api/videos/links?term_ids=${ids}&lang=${lang}`);
+      const res = await fetch(`/api/videos/links?term_ids=${ids}&lang=${lang}${refreshParam}`);
       const data = await res.json();
       const groups = data.groups || [];
       if (!groups.length) {
@@ -249,6 +252,7 @@
         </section>
       `).join("");
       bindInlineVideoHandlers();
+      $("#refreshVideosBtn").hidden = false;
     } catch {
       container.innerHTML = `<p class="empty-msg">${t("error.generic")}</p>`;
     }
@@ -302,6 +306,7 @@
         <div class="video-card-body">
           <div class="video-card-title" title="${escapeHtml(video.title)}">${escapeHtml(truncate(video.title, 64))}</div>
           ${video.channel ? `<div class="video-card-channel">${escapeHtml(video.channel)}</div>` : ""}
+          ${video.cached ? `<div class="video-card-cache">${t("videos.cached")}</div>` : ""}
           <div class="video-card-actions">${action}</div>
         </div>
       </article>
@@ -373,7 +378,16 @@
 
   $("#searchMode").addEventListener("change", doSearch);
   $("#kindFilter").addEventListener("change", doSearch);
-  $("#findVideosBtn").addEventListener("click", findVideos);
+  $("#findVideosBtn").addEventListener("click", () => findVideos(false));
+  $("#refreshVideosBtn").addEventListener("click", () => findVideos(true));
+  $("#clearSelectedBtn").addEventListener("click", () => {
+    selected.clear();
+    saveSelected();
+    renderSelected();
+    $("#videoLinks").innerHTML = "";
+    $("#videosEmpty").style.display = "block";
+    $("#refreshVideosBtn").hidden = true;
+  });
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("#embedModal").hidden) {

@@ -11,7 +11,7 @@ For each selected term and each applicable source:
 3. URL-encode into the source's `base_url` template (`{query}` placeholder).
 4. Filter sources by `language` (`en`, `ro`, or `multi`).
 
-API-tier sources: **YouTube** (no API key by default — Piped/Invidious search + `youtube-nocookie` embed; optional `YOUTUBE_API_KEY` for official API), **PubMed** (NCBI E-utilities, no key; set `NCBI_CONTACT_EMAIL`), and **Vimeo** (optional `VIMEO_TOKEN`). Results are cached in `video_results` and shown with thumbnails; YouTube/Vimeo support in-page embed playback.
+API-tier sources: **YouTube** and **Vimeo** work without API keys by default (Piped/Invidious + public Vimeo search/oEmbed); optional `YOUTUBE_API_KEY` / `VIMEO_TOKEN` improve reliability. **PubMed** uses NCBI E-utilities (no key; set `NCBI_CONTACT_EMAIL`). Results are cached in `video_results` and shown with thumbnails; YouTube/Vimeo support in-page embed playback.
 
 ## Tier 1 — Inline results (Phase 2)
 
@@ -19,7 +19,7 @@ API-tier sources: **YouTube** (no API key by default — Piped/Invidious search 
 |--------|-----------|----------|------|
 | YouTube | Piped/Invidious (default) or Data API v3 | `youtube-nocookie.com/embed` | Optional `YOUTUBE_API_KEY` |
 | PubMed / PMC | E-utilities esearch + esummary | Article link | `NCBI_CONTACT_EMAIL` |
-| Vimeo | Vimeo API | Vimeo embed | Optional `VIMEO_TOKEN` |
+| Vimeo | Public search + oEmbed (default) or Vimeo API | Vimeo embed | Optional `VIMEO_TOKEN` |
 
 ## Tier 2 — English platforms (search links)
 

@@ -118,6 +118,10 @@ def infer_specialty(name: str) -> str | None:
     return None
 
 
+def infer_specialty_for_term(primary: str, consumer: str | None = None) -> str | None:
+    return infer_specialty(primary) or (infer_specialty(consumer) if consumer else None)
+
+
 def import_procedures(conn) -> int:
     count = 0
     if PROCEDURES_CSV.exists():
@@ -147,7 +151,7 @@ def import_procedures(conn) -> int:
             INSERT INTO terms (kind, code, code_system, primary_name, consumer_name, layer, is_surgical, specialty, active)
             VALUES ('procedure', ?, 'NLM', ?, ?, 'curated', 1, ?, 1)
             """,
-            (key_id, primary, consumer, infer_specialty(primary)),
+            (key_id, primary, consumer, infer_specialty_for_term(primary, consumer)),
         )
         term_id = cur.lastrowid
         upsert_en_translation(conn, term_id, primary, consumer)
@@ -165,6 +169,9 @@ def main() -> None:
         px = import_procedures(conn)
         log_import(conn, "nlm_conditions", "curated", dx)
         log_import(conn, "nlm_procedures", "curated", px)
+        from scripts.backfill_nlm_specialties import backfill_nlm_specialties
+
+        backfill_nlm_specialties(conn)
     print(f"Imported {dx} conditions and {px} procedures from NLM curated tables.")
     print_reindex_warning()
 

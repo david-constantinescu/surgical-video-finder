@@ -65,8 +65,9 @@ Visit http://localhost:5001
 
 Optional upgrades:
 - `YOUTUBE_API_KEY` — official YouTube Data API (more reliable at scale)
-- `VIMEO_TOKEN` — inline Vimeo results
+- `VIMEO_TOKEN` — official Vimeo API (no-key inline Vimeo works without it)
 - `NOKEY_SEARCH_INSTANCES` — comma-separated Piped/Invidious bases if defaults are down
+- **Refresh results** — click the refresh button after the first search to bypass the 7-day cache
 
 ## Troubleshooting
 
